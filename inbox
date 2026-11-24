@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HP — настолка</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+  .app { max-width: 700px; margin: 0 auto; }
+  h1 { margin-bottom: 16px; font-size: 1.4rem; }
+
+  .players {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .player-block {
+    border-radius: 16px;
+    padding: 20px;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: transform 0.1s, border-color 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .player-block:hover { transform: scale(1.02); border-color: #fff; }
+  .player-block .pname { font-size: 1.1rem; font-weight: bold; }
+  .player-block .php { font-size: 1.8rem; font-weight: bold; }
+  .player-block .pbar { height: 10px; background: rgba(0,0,0,0.3); border-radius: 5px; overflow: hidden; }
+  .player-block .pfill { height: 100%; background: rgba(255,255,255,0.8); transition: width 0.2s; }
+
+  .p1 { background: #ff9800; color: #fff; }
+  .p2 { background: #d4b900; color: #fff; }
+  .p3 { background: #4caf50; color: #fff; }
+  .p4 { background: #2196f3; color: #fff; }
+  .p1 .pfill { background: #ffe0b2; }
+  .p2 .pfill { background: #fff9c4; }
+  .p3 .pfill { background: #c8e6c9; }
+  .p4 .pfill { background: #bbdefb; }
+
+  @media (max-width: 480px) {
+    .players { grid-template-columns: 1fr; }
+    .player-block { padding: 14px; }
+    .player-block .php { font-size: 1.5rem; }
+  }
+
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 16px;
+    z-index: 100;
+  }
+  .modal-overlay.active { display: flex; }
+  @media (max-width: 480px) {
+    .modal-overlay { padding: 10px; }
+  }
+
+  .modal {
+    background: #0f3460;
+    border-radius: 16px;
+    padding: 24px;
+    width: min(440px, 100%);
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  @media (max-width: 480px) {
+    .modal { padding: 16px; border-radius: 12px; }
+    .modal h2 { font-size: 1.05rem; }
+  }
+  .modal h2 { font-size: 1.2rem; }
+
+  .choice-btn {
+    padding: 18px;
+    font-size: 1.15rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    color: #fff;
+    width: 100%;
+  }
+  .choice-btn.enemy { background: #e94560; }
+  .choice-btn.enemy:hover { background: #c73650; }
+  .choice-btn.camp { background: #2e7d32; }
+  .choice-btn.camp:hover { background: #256428; }
+  .exit-btn {
+    padding: 12px;
+    border: 2px solid #4a4a7a;
+    border-radius: 10px;
+    background: transparent;
+    color: #eee;
+    cursor: pointer;
+    font-size: 1rem;
+    width: 100%;
+  }
+  .exit-btn:hover { border-color: #e94560; }
+
+  .vs-row { display: flex; align-items: center; gap: 14px; }
+  .vs-col { flex: 1; min-width: 0; text-align: center; }
+  .vs-col .name { font-weight: bold; margin-bottom: 6px; }
+  .vs-col .hp { font-size: 2rem; font-weight: bold; word-break: break-word; }
+  .vs-col .hp.enemy { color: #e94560; }
+  .vs-col .hp.player { color: #4ecca3; }
+  .vs-col .bar { height: 10px; background: #222; border-radius: 5px; overflow: hidden; margin-top: 8px; }
+  .vs-col .fill { height: 100%; transition: width 0.2s; }
+  .vs-col .fill.enemy { background: #e94560; }
+  .vs-col .fill.player { background: #4ecca3; }
+  .vs-mark { font-weight: bold; color: #e94560; font-size: 1.2rem; }
+  @media (max-width: 480px) {
+    .vs-row { gap: 8px; }
+    .vs-col .hp { font-size: 1.5rem; }
+    .vs-col .name { font-size: 0.9rem; }
+    .vs-mark { font-size: 1rem; }
+  }
+
+  .roll-display { text-align: center; font-size: 2rem; letter-spacing: 10px; min-height: 2.2rem; }
+  .roll-result { text-align: center; font-size: 1.05rem; min-height: 1.4rem; }
+  .roll-result .crit { color: #f9c74f; font-weight: bold; }
+
+  .log {
+    max-height: 120px; overflow-y: auto;
+    font-size: 0.85rem; color: #ccc;
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 10px; background: #0a1f3d; border-radius: 8px;
+    word-break: break-word;
+  }
+  .log .crit { color: #f9c74f; font-weight: bold; }
+  .log .win { color: #4ecca3; font-weight: bold; }
+  .log .lose { color: #e94560; font-weight: bold; }
+
+  .hit-btn {
+    padding: 16px;
+    font-size: 1.15rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 12px;
+    background: #e94560;
+    color: #fff;
+    cursor: pointer;
+    width: 100%;
+  }
+  .hit-btn:hover { background: #c73650; }
+  .hit-btn:disabled { background: #555; cursor: default; }
+
+  .note { font-size: 0.85rem; color: #888; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="players" id="players"></div>
+</div>
+
+<!-- Выбор: Лагерь или Враг -->
+<div class="modal-overlay" id="choiceOverlay">
+  <div class="modal">
+    <h2 id="choiceTitle">Выберите вариант</h2>
+    <button class="choice-btn enemy" onclick="openEnemy()">⚔️ Враг</button>
+    <button class="choice-btn camp" onclick="openCamp()">⛑ Лагерь</button>
+    <button class="exit-btn" onclick="closeChoice()">Отмена</button>
+  </div>
+</div>
+
+<!-- Окно врага: герой слева, враг справа -->
+<div class="modal-overlay" id="enemyOverlay">
+  <div class="modal">
+    <h2>Бой</h2>
+    <div class="vs-row">
+      <div class="vs-col">
+        <div class="name" id="enemyPlayerName">Игрок</div>
+        <div class="hp player" id="enemyPlayerHp">30</div>
+        <div class="bar"><div class="fill player" id="enemyPlayerFill" style="width:100%"></div></div>
+      </div>
+      <div class="vs-mark">VS</div>
+      <div class="vs-col">
+        <div class="name">Враг</div>
+        <div class="hp enemy" id="enemyHp">20</div>
+        <div class="bar"><div class="fill enemy" id="enemyFill" style="width:100%"></div></div>
+      </div>
+    </div>
+
+    <div class="roll-display" id="rollDice"></div>
+    <div class="roll-result" id="rollResult"></div>
+    <div class="log" id="battleLog"></div>
+
+    <button class="hit-btn" id="hitBtn" onclick="hitEnemy()">УДАРИТЬ (2d6)</button>
+    <button class="exit-btn" onclick="closeEnemy()">Выход</button>
+  </div>
+</div>
+
+<!-- Лагерь -->
+<div class="modal-overlay" id="campOverlay">
+  <div class="modal">
+    <h2>⛑ Лагерь</h2>
+    <p id="campInfo"></p>
+    <button class="choice-btn camp" id="campHealBtn" onclick="doHeal()">ВОССТАНОВИТЬ HP</button>
+    <button class="exit-btn" onclick="closeCamp()">Выход</button>
+  </div>
+</div>
+
+<script>
+// ---------- Данные ----------
+const players = [
+  { id: 1, name: "Игрок 1", hp: 30, maxHp: 30, cls: "p1" },
+  { id: 2, name: "Игрок 2", hp: 30, maxHp: 30, cls: "p2" },
+  { id: 3, name: "Игрок 3", hp: 30, maxHp: 30, cls: "p3" },
+  { id: 4, name: "Игрок 4", hp: 30, maxHp: 30, cls: "p4" },
+];
+
+const ENEMY_MAX_HP = 20;
+let enemyHp = 20;
+
+let selectedPlayer = null;
+let campUsed = false;
+
+// ---------- Крит ----------
+const CRIT_VALUE = 15;
+const rollD6 = () => Math.floor(Math.random() * 6) + 1;
+
+// ---------- Рендер блоков ----------
+function renderPlayers() {
+  document.getElementById("players").innerHTML = players.map(p => {
+    const pct = (p.hp / p.maxHp) * 100;
+    return `
+      <div class="player-block ${p.cls}" onclick="openChoice(${p.id})">
+        <div class="pname">${p.name}</div>
+        <div class="php">${p.hp} / ${p.maxHp}</div>
+        <div class="pbar"><div class="pfill" style="width:${pct}%"></div></div>
+      </div>
+    `;
+  }).join("");
+}
+
+// ---------- Выбор ----------
+function openChoice(playerId) {
+  selectedPlayer = players.find(p => p.id === playerId);
+  document.getElementById("choiceTitle").textContent = selectedPlayer.name + " — выберите вариант";
+  document.getElementById("choiceOverlay").classList.add("active");
+}
+function closeChoice() {
+  selectedPlayer = null;
+  document.getElementById("choiceOverlay").classList.remove("active");
+}
+
+// ---------- Окно врага (каждый раз новый) ----------
+function openEnemy() {
+  if (!selectedPlayer) return;
+  document.getElementById("choiceOverlay").classList.remove("active");
+
+  // Каждый раз новый враг с полным HP
+  enemyHp = ENEMY_MAX_HP;
+
+  document.getElementById("enemyPlayerName").textContent = selectedPlayer.name;
+  document.getElementById("rollDice").textContent = "";
+  document.getElementById("rollResult").textContent = "";
+  document.getElementById("battleLog").innerHTML = "";
+  document.getElementById("hitBtn").disabled = false;
+
+  renderEnemyWindow();
+  document.getElementById("enemyOverlay").classList.add("active");
+}
+
+function renderEnemyWindow() {
+  // Герой слева
+  document.getElementById("enemyPlayerHp").textContent = selectedPlayer.hp;
+  document.getElementById("enemyPlayerFill").style.width = `${(selectedPlayer.hp / selectedPlayer.maxHp) * 100}%`;
+  // Враг справа
+  document.getElementById("enemyHp").textContent = enemyHp;
+  document.getElementById("enemyFill").style.width = `${(enemyHp / ENEMY_MAX_HP) * 100}%`;
+}
+
+function closeEnemy() {
+  document.getElementById("enemyOverlay").classList.remove("active");
+  selectedPlayer = null;
+  renderPlayers();
+}
+
+function hitEnemy() {
+  if (!selectedPlayer) return;
+  if (enemyHp <= 0 || selectedPlayer.hp <= 0) return;
+
+  const d1 = rollD6();
+  const d2 = rollD6();
+  let damage = d1 + d2;
+  let label = `${d1}+${d2} = ${damage}`;
+
+  const isCrit = damage === CRIT_VALUE;
+  if (isCrit) {
+    damage *= 2;
+    label += " — <span class='crit'>КРИТ ×2</span>";
+  }
+
+  document.getElementById("rollDice").textContent = `${d1} + ${d2}`;
+  document.getElementById("rollResult").innerHTML = isCrit
+    ? `Урон: <b>${damage}</b> <span class='crit'>(крит!)</span>`
+    : `Урон: <b>${damage}</b>`;
+
+  enemyHp = Math.max(0, enemyHp - damage);
+  addLog(`Ты нанёс ${damage} (${label})`);
+
+  if (enemyHp === 0) {
+    addLog(`<span class='win'>Враг повержен!</span>`);
+    renderEnemyWindow();
+    document.getElementById("hitBtn").disabled = true;
+    return;
+  }
+
+  // Ответный удар врага
+  const e1 = rollD6();
+  const e2 = rollD6();
+  const enemyDamage = e1 + e2;
+  selectedPlayer.hp = Math.max(0, selectedPlayer.hp - enemyDamage);
+  addLog(`Враг нанёс ${enemyDamage} (${e1}+${e2})`);
+
+  if (selectedPlayer.hp === 0) {
+    addLog(`<span class='lose'>Ты пал в бою...</span>`);
+    document.getElementById("hitBtn").disabled = true;
+  }
+
+  renderEnemyWindow();
+}
+
+function addLog(html) {
+  const log = document.getElementById("battleLog");
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ---------- Лагерь (каждый раз свежий) ----------
+function openCamp() {
+  if (!selectedPlayer) return;
+  document.getElementById("choiceOverlay").classList.remove("active");
+
+  campUsed = false; // каждый вход — лагерь свежий
+  const healAmount = Math.floor(selectedPlayer.maxHp * 0.3);
+  const canHeal = selectedPlayer.hp < selectedPlayer.maxHp;
+
+  document.getElementById("campInfo").innerHTML =
+    `${selectedPlayer.name}: ${selectedPlayer.hp} / ${selectedPlayer.maxHp} HP<br>` +
+    (canHeal ? `Можно восстановить +${healAmount} HP` : `HP уже полное`);
+
+  const btn = document.getElementById("campHealBtn");
+  btn.disabled = !canHeal;
+  btn.style.opacity = canHeal ? "1" : "0.5";
+
+  document.getElementById("campOverlay").classList.add("active");
+}
+
+function closeCamp() {
+  document.getElementById("campOverlay").classList.remove("active");
+  selectedPlayer = null;
+}
+
+function doHeal() {
+  if (!selectedPlayer) return;
+  if (campUsed) return;
+  if (selectedPlayer.hp >= selectedPlayer.maxHp) return;
+
+  const healAmount = Math.floor(selectedPlayer.maxHp * 0.3);
+  selectedPlayer.hp = Math.min(selectedPlayer.maxHp, selectedPlayer.hp + healAmount);
+  campUsed = true;
+
+  closeCamp();
+  renderPlayers();
+}
+
+// ---------- Старт ----------
+renderPlayers();
+</script>
+
+</body>
+</html>
